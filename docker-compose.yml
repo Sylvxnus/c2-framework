@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    networks: [c2lab, operator_net]   # two networks: internal for implant, external for operator
+    ports:
+      - "8000:8000"   # reachable from host via operator_net
+    environment:
+      - C2_PSK=${C2_PSK}
+
+  implant:
+    build:
+      context: .
+      dockerfile: implant/Dockerfile
+    networks: [c2lab]                 # internal only — no internet, no host access
+    environment:
+      - C2_SERVER=http://server:8000
+      - C2_PSK=${C2_PSK}
+      - POLL_INTERVAL=${POLL_INTERVAL:-10}
+      - JITTER=${JITTER:-0.4}
+    depends_on:
+      - server
+
+networks:
+  c2lab:
+    driver: bridge
+    internal: true   # implant/server only — no outbound route
+  operator_net:
+    driver: bridge   # server + host only — for operator CLI access
